@@ -163,7 +163,7 @@ app.MapGet("/api/resources/{resourceType}", async (
     return Results.Content(bundle, "application/json");
 });
 
-app.MapStaticAssets();
-app.MapRazorPages().WithStaticAssets();
+app.UseStaticFiles();
+app.MapRazorPages();
 
 app.Run();
