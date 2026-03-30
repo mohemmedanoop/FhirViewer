@@ -193,11 +193,25 @@ else
                 }
                 else
                 {
-                    <div class="slider-shell">
+                    <div class="slider-shell" data-resource-slider>
+                        <div class="slider-toolbar">
+                            <div class="slider-status">
+                                <span class="section-tag">@resourceSection.ResourceType</span>
+                                <span class="slider-counter" data-slider-counter>1 / @resourceSection.Cards.Count</span>
+                            </div>
+                            <div class="slider-actions">
+                                <button type="button" class="slider-button" data-slider-prev aria-label="Show previous @resourceSection.Heading record">Previous</button>
+                                <button type="button" class="slider-button" data-slider-next aria-label="Show next @resourceSection.Heading record">Next</button>
+                            </div>
+                        </div>
+
                         <div class="cards-slider">
+                            @{
+                                var cardIndex = 0;
+                            }
                             @foreach (var card in resourceSection.Cards)
                             {
-                                <div class="fhir-card slider-card">
+                                <div class="fhir-card slider-card @(cardIndex == 0 ? "is-active" : "")" data-slider-card data-card-index="@cardIndex" aria-hidden="@(cardIndex == 0 ? "false" : "true")">
                                     <div class="card-header-line">
                                         <h4>@card.Title</h4>
                                         @if (!string.IsNullOrWhiteSpace(card.Subtitle))
@@ -221,6 +235,8 @@ else
                                         <pre>@card.RawJson</pre>
                                     </details>
                                 </div>
+
+                                cardIndex++;
                             }
                         </div>
                     </div>
