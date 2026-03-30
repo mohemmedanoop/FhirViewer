@@ -1,0 +1,231 @@
+@page
+@model FhirViewer.Web.Pages.IndexModel
+@{
+    ViewData["Title"] = "FHIR Viewer";
+}
+
+@functions {
+    private static string GetErrorMessage(string? errorCode) => errorCode switch
+    {
+        "config" => "Connection settings are incomplete. Update the client id, client secret, callback path, and any optional API key values before signing in.",
+        "callback" => "The identity platform did not return a usable authorization response.",
+        "state" => "The sign-in state check failed. Please start the consent flow again.",
+        "refresh" => "A refresh token is not available for this session.",
+        _ => "Unable to complete the request."
+    };
+}
+
+<section class="hero-shell">
+    <div class="hero-copy">
+        <span class="eyebrow">Patient-friendly FHIR workspace</span>
+        <h1>@Model.Dashboard.WelcomeTitle</h1>
+        <p class="hero-text">@Model.Dashboard.WelcomeDescription</p>
+
+        <div class="hero-actions">
+            @if (!Model.Dashboard.IsAuthenticated)
+            {
+                <a class="btn btn-primary btn-lg" href="/auth/login">@Model.Dashboard.ConnectButtonLabel</a>
+            }
+            else
+            {
+                <form method="post" action="/auth/refresh">
+                    <button class="btn btn-primary btn-lg" type="submit">Refresh session</button>
+                </form>
+                <form method="post" action="/auth/logout">
+                    <button class="btn btn-outline-light btn-lg" type="submit">Disconnect</button>
+                </form>
+            }
+        </div>
+
+        <p class="hint-text">@Model.Dashboard.LoginHint</p>
+    </div>
+
+    <aside class="hero-panel">
+        <div class="metric-card">
+            <span class="metric-label">Viewer</span>
+            <strong>@Model.Dashboard.ViewerTitle</strong>
+            <p>@Model.Dashboard.ViewerSubtitle</p>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">FHIR resources</span>
+            <strong>@Model.Dashboard.RequestedResources.Count</strong>
+            <p>@string.Join(", ", Model.Dashboard.RequestedResources)</p>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">Consent status</span>
+            <strong>@(Model.Dashboard.IsAuthenticated ? "Ready to browse" : "Waiting for sign-in")</strong>
+            <p>Patient ID: @(Model.Dashboard.Token?.Patient ?? "Available after consent")</p>
+        </div>
+    </aside>
+</section>
+
+@if (!Model.Dashboard.IsConfigured)
+{
+    <div class="status-banner warning-banner">
+        <strong>Configuration needed.</strong> Update the `FhirConnection` section in <code>appsettings</code> so the viewer can connect to your OAuth and FHIR endpoints.
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.Dashboard.ErrorCode))
+{
+    <div class="status-banner danger-banner">
+        <strong>Authentication issue.</strong> @GetErrorMessage(Model.Dashboard.ErrorCode)
+    </div>
+}
+
+@if (!Model.Dashboard.IsAuthenticated)
+{
+    <section class="intro-grid">
+        <article class="intro-card">
+            <h2>Easy to configure</h2>
+            <p>Brand text, API key behavior, scopes, resources, callback path, and service endpoints can all be tuned in configuration for each environment.</p>
+        </article>
+        <article class="intro-card">
+            <h2>Built for consented access</h2>
+            <p>The app sends the user through the authorization code flow, stores the returned tokens in session, and then loads the authorized FHIR resources into a single viewer.</p>
+        </article>
+        <article class="intro-card">
+            <h2>Designed for quick reading</h2>
+            <p>Patient and coverage sit at the top, while every other resource is shown as a swipeable card rail so teams can review multiple records without losing context.</p>
+        </article>
+    </section>
+}
+else
+{
+    <section class="featured-shell">
+        <div class="featured-heading">
+            <div>
+                <span class="eyebrow">Patient snapshot</span>
+                <h2>Header summaries for the records people care about first</h2>
+            </div>
+            <p>Patient and coverage stay pinned near the top, while the rest of the dataset flows beneath them in browsable lanes.</p>
+        </div>
+
+        <div class="featured-grid">
+            <article class="featured-card patient-feature">
+                <div class="featured-topline">
+                    <span class="section-tag">Patient</span>
+                    <span class="mini-pill">Featured</span>
+                </div>
+                @if (Model.Dashboard.PatientSummary is null)
+                {
+                    <div class="empty-state">No patient summary is available yet.</div>
+                }
+                else
+                {
+                    <h3>@Model.Dashboard.PatientSummary.Title</h3>
+                    @if (!string.IsNullOrWhiteSpace(Model.Dashboard.PatientSummary.Subtitle))
+                    {
+                        <p class="featured-subtitle">@Model.Dashboard.PatientSummary.Subtitle</p>
+                    }
+                    <dl class="featured-facts">
+                        @foreach (var fact in Model.Dashboard.PatientSummary.Facts)
+                        {
+                            <div>
+                                <dt>@fact.Label</dt>
+                                <dd>@fact.Value</dd>
+                            </div>
+                        }
+                    </dl>
+                }
+            </article>
+
+            <article class="featured-card coverage-feature">
+                <div class="featured-topline">
+                    <span class="section-tag">Coverage</span>
+                    <span class="mini-pill">Featured</span>
+                </div>
+                @if (Model.Dashboard.CoverageSummary is null)
+                {
+                    <div class="empty-state">No coverage summary is available yet.</div>
+                }
+                else
+                {
+                    <h3>@Model.Dashboard.CoverageSummary.Title</h3>
+                    @if (!string.IsNullOrWhiteSpace(Model.Dashboard.CoverageSummary.Subtitle))
+                    {
+                        <p class="featured-subtitle">@Model.Dashboard.CoverageSummary.Subtitle</p>
+                    }
+                    <dl class="featured-facts">
+                        @foreach (var fact in Model.Dashboard.CoverageSummary.Facts)
+                        {
+                            <div>
+                                <dt>@fact.Label</dt>
+                                <dd>@fact.Value</dd>
+                            </div>
+                        }
+                    </dl>
+                }
+            </article>
+        </div>
+    </section>
+
+    <section class="sections-header">
+        <div>
+            <span class="eyebrow">FHIR resource lanes</span>
+            <h2>Browse consented records in easy side-scrolling sections</h2>
+        </div>
+        <p>Each lane holds multiple cards for that resource, making it simple to compare entries without jumping between pages.</p>
+    </section>
+
+    <section class="lane-stack">
+        @foreach (var resourceSection in Model.Dashboard.Sections.Where(x => x.ResourceType != "Patient" && x.ResourceType != "Coverage"))
+        {
+            <article class="resource-section">
+                <div class="section-topline">
+                    <div>
+                        <span class="section-tag">@resourceSection.CategoryLabel</span>
+                        <h3>@resourceSection.Heading</h3>
+                        <p>@resourceSection.Description</p>
+                    </div>
+                    <span class="pill">@resourceSection.Total record(s)</span>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(resourceSection.Error))
+                {
+                    <div class="status-banner muted-banner">
+                        <strong>Unable to load @resourceSection.ResourceType.</strong> @resourceSection.Error
+                    </div>
+                }
+                else if (resourceSection.Cards.Count == 0)
+                {
+                    <div class="empty-state">No entries were returned for this resource.</div>
+                }
+                else
+                {
+                    <div class="slider-shell">
+                        <div class="cards-slider">
+                            @foreach (var card in resourceSection.Cards)
+                            {
+                                <div class="fhir-card slider-card">
+                                    <div class="card-header-line">
+                                        <h4>@card.Title</h4>
+                                        @if (!string.IsNullOrWhiteSpace(card.Subtitle))
+                                        {
+                                            <p>@card.Subtitle</p>
+                                        }
+                                    </div>
+
+                                    <dl class="facts-list">
+                                        @foreach (var fact in card.Facts)
+                                        {
+                                            <div>
+                                                <dt>@fact.Label</dt>
+                                                <dd>@fact.Value</dd>
+                                            </div>
+                                        }
+                                    </dl>
+
+                                    <details>
+                                        <summary>View raw FHIR JSON</summary>
+                                        <pre>@card.RawJson</pre>
+                                    </details>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </article>
+        }
+    </section>
+}

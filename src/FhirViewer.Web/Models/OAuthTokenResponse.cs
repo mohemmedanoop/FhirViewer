@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
 
-namespace HumanaPatientViewer.Web.Models;
+namespace FhirViewer.Web.Models;
 
-public sealed class HumanaTokenResponse
+public sealed class OAuthTokenResponse
 {
     [JsonPropertyName("access_token")]
     public string AccessToken { get; set; } = "";

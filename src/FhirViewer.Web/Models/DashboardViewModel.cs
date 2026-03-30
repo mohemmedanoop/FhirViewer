@@ -1,14 +1,29 @@
-namespace HumanaPatientViewer.Web.Models;
+namespace FhirViewer.Web.Models;
 
 public sealed class DashboardViewModel
 {
     public bool IsConfigured { get; init; }
     public bool IsAuthenticated { get; init; }
     public string? ErrorCode { get; init; }
-    public HumanaTokenResponse? Token { get; init; }
+    public OAuthTokenResponse? Token { get; init; }
     public IReadOnlyList<FhirSectionViewModel> Sections { get; init; } = [];
     public IReadOnlyList<string> RequestedResources { get; init; } = [];
-    public string LoginHint { get; init; } = "Sandbox users follow HUser00001 / PW00001! through HUser00020 / PW00020!.";
+    public FeaturedSummaryViewModel? PatientSummary { get; init; }
+    public FeaturedSummaryViewModel? CoverageSummary { get; init; }
+    public string LoginHint { get; init; } = "";
+    public string ViewerTitle { get; init; } = "FHIR Viewer";
+    public string ViewerSubtitle { get; init; } = "Configurable patient access experience";
+    public string WelcomeTitle { get; init; } = "A simple, welcoming way to browse consented FHIR data.";
+    public string WelcomeDescription { get; init; } = "";
+    public string ConnectButtonLabel { get; init; } = "Connect";
+}
+
+public sealed class FeaturedSummaryViewModel
+{
+    public required string Title { get; init; }
+    public string? Subtitle { get; init; }
+    public IReadOnlyList<FhirFactViewModel> Facts { get; init; } = [];
+    public string ResourceType { get; init; } = "";
 }
 
 public sealed class FhirSectionViewModel
@@ -16,6 +31,7 @@ public sealed class FhirSectionViewModel
     public required string ResourceType { get; init; }
     public string Heading { get; init; } = "";
     public string Description { get; init; } = "";
+    public string CategoryLabel { get; init; } = "FHIR Resource";
     public int Total { get; init; }
     public string? BundleJson { get; init; }
     public string? Error { get; init; }

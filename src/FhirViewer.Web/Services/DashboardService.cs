@@ -1,20 +1,42 @@
 using System.Text.Json;
-using HumanaPatientViewer.Web.Models;
-using HumanaPatientViewer.Web.Options;
+using FhirViewer.Web.Models;
+using FhirViewer.Web.Options;
 using Microsoft.Extensions.Options;
 
-namespace HumanaPatientViewer.Web.Services;
+namespace FhirViewer.Web.Services;
 
-public sealed class DashboardService(HumanaFhirService fhirService, IOptions<HumanaOptions> options)
+public sealed class DashboardService(FhirApiService fhirService, IOptions<FhirConnectionOptions> options)
 {
-    private readonly HumanaOptions _options = options.Value;
+    private readonly FhirConnectionOptions _options = options.Value;
 
     public async Task<IReadOnlyList<FhirSectionViewModel>> BuildSectionsAsync(
         string accessToken,
         CancellationToken cancellationToken)
     {
         var tasks = _options.RequestedResources.Select(resourceType => BuildSectionAsync(resourceType, accessToken, cancellationToken));
-        return await Task.WhenAll(tasks);
+        var sections = await Task.WhenAll(tasks);
+
+        return sections
+            .OrderBy(static section => GetDisplayPriority(section.ResourceType))
+            .ToArray();
+    }
+
+    public static FeaturedSummaryViewModel? BuildFeaturedSummary(IReadOnlyList<FhirSectionViewModel> sections, string resourceType)
+    {
+        var section = sections.FirstOrDefault(x => string.Equals(x.ResourceType, resourceType, StringComparison.OrdinalIgnoreCase));
+        var card = section?.Cards.FirstOrDefault();
+        if (card is null)
+        {
+            return null;
+        }
+
+        return new FeaturedSummaryViewModel
+        {
+            ResourceType = resourceType,
+            Title = card.Title,
+            Subtitle = card.Subtitle,
+            Facts = card.Facts.Take(4).ToArray()
+        };
     }
 
     private async Task<FhirSectionViewModel> BuildSectionAsync(
@@ -32,12 +54,24 @@ public sealed class DashboardService(HumanaFhirService fhirService, IOptions<Hum
             return new FhirSectionViewModel
             {
                 ResourceType = resourceType,
-                Heading = resourceType,
+                Heading = FhirDisplayMapper.GetHeading(resourceType),
                 Description = FhirDisplayMapper.GetDescription(resourceType),
+                CategoryLabel = FhirDisplayMapper.GetCategory(resourceType),
                 Error = ex.Message
             };
         }
     }
+
+    private static int GetDisplayPriority(string resourceType) => resourceType switch
+    {
+        "Patient" => 0,
+        "Coverage" => 1,
+        "ExplanationOfBenefit" => 2,
+        "Observation" => 3,
+        "MedicationRequest" => 4,
+        "Condition" => 5,
+        _ => 10
+    };
 }
 
 internal static class FhirDisplayMapper
@@ -52,7 +86,7 @@ internal static class FhirDisplayMapper
 
         if (root.TryGetProperty("entry", out var entries) && entries.ValueKind == JsonValueKind.Array)
         {
-            foreach (var entry in entries.EnumerateArray().Take(8))
+            foreach (var entry in entries.EnumerateArray().Take(10))
             {
                 if (entry.TryGetProperty("resource", out var resource))
                 {
@@ -68,35 +102,55 @@ internal static class FhirDisplayMapper
         return new FhirSectionViewModel
         {
             ResourceType = resourceType,
-            Heading = resourceType switch
-            {
-                "ExplanationOfBenefit" => "Explanation of Benefits",
-                "MedicationRequest" => "Medication Requests",
-                "DocumentReference" => "Document References",
-                _ => resourceType
-            },
+            Heading = GetHeading(resourceType),
             Description = GetDescription(resourceType),
+            CategoryLabel = GetCategory(resourceType),
             Total = total,
             BundleJson = bundleJson,
             Cards = cards
         };
     }
 
+    public static string GetHeading(string resourceType) => resourceType switch
+    {
+        "ExplanationOfBenefit" => "Explanation of Benefits",
+        "MedicationRequest" => "Medication Requests",
+        "DocumentReference" => "Documents",
+        _ => resourceType
+    };
+
     public static string GetDescription(string resourceType) => resourceType switch
     {
-        "Patient" => "Demographics and core member identity details.",
-        "Coverage" => "Plan and payer coverage currently associated with the member.",
-        "ExplanationOfBenefit" => "Claims and adjudication details for services already processed.",
-        "Goal" => "Documented care goals and expected outcomes.",
-        "Immunization" => "Vaccination history and status.",
-        "MedicationRequest" => "Medication orders and prescriptions.",
-        "Observation" => "Clinical observations such as labs and vitals.",
-        "Procedure" => "Completed procedures and related servicing details.",
-        "CarePlan" => "Coordinated plans of care.",
-        "CareTeam" => "Care participants supporting the member.",
-        "Condition" => "Diagnoses and problem list items.",
-        "DocumentReference" => "Files and clinical documents shared through FHIR.",
-        _ => "FHIR data returned by Humana."
+        "Patient" => "Identity, demographics, contact details, and core patient facts.",
+        "Coverage" => "Insurance and payer coverage information that frames the rest of the experience.",
+        "ExplanationOfBenefit" => "Claims, adjudication, and financial detail for completed services.",
+        "Goal" => "Goals and target outcomes that give the member's plan context.",
+        "Immunization" => "Vaccines and immunization history in a quick-review format.",
+        "MedicationRequest" => "Current and historic medication orders and prescriptions.",
+        "Observation" => "Lab results, vitals, and other clinical measurements.",
+        "Procedure" => "Procedures and service events completed for the patient.",
+        "CarePlan" => "Plans of care and coordinated next steps.",
+        "CareTeam" => "Care participants and care relationships around the patient.",
+        "Condition" => "Diagnoses, active problems, and longitudinal condition tracking.",
+        "DocumentReference" => "Documents and files that can be opened or audited later.",
+        _ => "FHIR data returned by the connected payer or provider platform."
+    };
+
+    public static string GetCategory(string resourceType) => resourceType switch
+    {
+        "Patient" => "Featured Profile",
+        "Coverage" => "Featured Coverage",
+        "ExplanationOfBenefit" => "Financial",
+        "Goal" => "Care Planning",
+        "Immunization" => "Preventive Care",
+        "MedicationRequest" => "Medications",
+        "Observation" => "Clinical Data",
+        "Procedure" => "Clinical Data",
+        "CarePlan" => "Care Planning",
+        "CareTeam" => "Care Planning",
+        "Condition" => "Clinical Data",
+        "DocumentReference" => "Documents",
+        _ => "FHIR Resource"
     };
 
     private static FhirCardViewModel MapCard(string resourceType, JsonElement resource)
@@ -122,7 +176,7 @@ internal static class FhirDisplayMapper
         {
             "Patient" => Combine("Patient", ReadString(resource, "gender"), ReadString(resource, "birthDate")),
             "Coverage" => Combine("Coverage", ReadString(resource, "status"), ReadString(resource, "subscriberId")),
-            "ExplanationOfBenefit" => Combine("EOB", ReadString(resource, "status"), ReadString(resource, "use")),
+            "ExplanationOfBenefit" => Combine("Benefit", ReadString(resource, "status"), ReadString(resource, "use")),
             "Goal" => Combine("Goal", ReadString(resource, "lifecycleStatus"), ReadDate(resource, "startDate")),
             "Immunization" => Combine("Immunization", ReadString(resource, "status"), ReadDate(resource, "occurrenceDateTime")),
             "MedicationRequest" => Combine("Medication", ReadString(resource, "status"), ReadDate(resource, "authoredOn")),
@@ -150,21 +204,24 @@ internal static class FhirDisplayMapper
         {
             "Patient" => new[]
             {
-                Fact("Member ID", ReadString(resource, "id")),
+                Fact("Patient ID", ReadString(resource, "id")),
                 Fact("Telecom", ReadArrayText(resource, "telecom", "value")),
-                Fact("Address", ReadAddress(resource))
+                Fact("Address", ReadAddress(resource)),
+                Fact("Language", ReadArrayText(resource, "communication", "language", "text") ?? ReadArrayCoding(resource, "communication", "language"))
             },
             "Coverage" => new[]
             {
                 Fact("Payor", ReadArrayText(resource, "payor", "display")),
                 Fact("Relationship", ReadText(resource, "relationship", "text") ?? ReadFirstCoding(resource, "relationship")),
-                Fact("Period", ReadPeriod(resource, "period"))
+                Fact("Period", ReadPeriod(resource, "period")),
+                Fact("Subscriber", ReadString(resource, "subscriberId"))
             },
             "ExplanationOfBenefit" => new[]
             {
                 Fact("Outcome", ReadString(resource, "outcome")),
                 Fact("Billable", ReadPeriod(resource, "billablePeriod")),
-                Fact("Insurer", ReadNestedDisplay(resource, "insurer"))
+                Fact("Insurer", ReadNestedDisplay(resource, "insurer")),
+                Fact("Disposition", ReadString(resource, "disposition"))
             },
             "Goal" => new[]
             {
@@ -235,10 +292,10 @@ internal static class FhirDisplayMapper
         {
             var first = names.EnumerateArray().FirstOrDefault();
             var given = first.TryGetProperty("given", out var givenNames) && givenNames.ValueKind == JsonValueKind.Array
-                ? string.Join(' ', givenNames.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrWhiteSpace(x)))
+                ? string.Join(" ", givenNames.EnumerateArray().Select(static x => x.GetString()).Where(static x => !string.IsNullOrWhiteSpace(x)))
                 : null;
             var family = first.TryGetProperty("family", out var familyName) ? familyName.GetString() : null;
-            var name = string.Join(' ', new[] { given, family }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            var name = string.Join(" ", new[] { given, family }.Where(static x => !string.IsNullOrWhiteSpace(x)));
             if (!string.IsNullOrWhiteSpace(name))
             {
                 return name;
@@ -289,7 +346,7 @@ internal static class FhirDisplayMapper
 
         var first = addresses.EnumerateArray().FirstOrDefault();
         var line = first.TryGetProperty("line", out var lines) && lines.ValueKind == JsonValueKind.Array
-            ? string.Join(", ", lines.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrWhiteSpace(x)))
+            ? string.Join(", ", lines.EnumerateArray().Select(static x => x.GetString()).Where(static x => !string.IsNullOrWhiteSpace(x)))
             : null;
         return Combine(null, line, ReadString(first, "city"), ReadString(first, "state"));
     }
@@ -340,6 +397,35 @@ internal static class FhirDisplayMapper
         return values.Count == 0 ? null : string.Join(", ", values.Distinct());
     }
 
+    private static string? ReadArrayCoding(JsonElement resource, params string[] path)
+    {
+        if (path.Length == 0 || !resource.TryGetProperty(path[0], out var array) || array.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        foreach (var item in array.EnumerateArray())
+        {
+            var current = item;
+            foreach (var segment in path.Skip(1))
+            {
+                if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(segment, out current))
+                {
+                    current = default;
+                    break;
+                }
+            }
+
+            var codingText = ReadFirstCoding(current, "coding");
+            if (!string.IsNullOrWhiteSpace(codingText))
+            {
+                return codingText;
+            }
+        }
+
+        return null;
+    }
+
     private static string? ReadDate(JsonElement resource, params string[] path)
     {
         var element = Navigate(resource, path);
@@ -364,7 +450,12 @@ internal static class FhirDisplayMapper
 
     private static string? ReadFirstCoding(JsonElement resource, string propertyName)
     {
-        if (!resource.TryGetProperty(propertyName, out var node))
+        JsonElement node;
+        if (string.Equals(propertyName, "coding", StringComparison.Ordinal))
+        {
+            node = resource;
+        }
+        else if (!resource.TryGetProperty(propertyName, out node))
         {
             return null;
         }
@@ -372,6 +463,12 @@ internal static class FhirDisplayMapper
         if (node.TryGetProperty("coding", out var coding) && coding.ValueKind == JsonValueKind.Array)
         {
             var first = coding.EnumerateArray().FirstOrDefault();
+            return ReadString(first, "display") ?? ReadString(first, "code");
+        }
+
+        if (node.ValueKind == JsonValueKind.Array)
+        {
+            var first = node.EnumerateArray().FirstOrDefault();
             return ReadString(first, "display") ?? ReadString(first, "code");
         }
 
@@ -409,14 +506,14 @@ internal static class FhirDisplayMapper
 
     private static string? Combine(string? prefix, params string?[] values)
     {
-        var parts = values.Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().ToList();
+        var parts = values.Where(static x => !string.IsNullOrWhiteSpace(x)).Cast<string>().ToList();
         if (parts.Count == 0)
         {
             return prefix;
         }
 
         return string.IsNullOrWhiteSpace(prefix)
-            ? string.Join(" • ", parts)
-            : $"{prefix} • {string.Join(" • ", parts)}";
+            ? string.Join(" | ", parts)
+            : $"{prefix} | {string.Join(" | ", parts)}";
     }
 }

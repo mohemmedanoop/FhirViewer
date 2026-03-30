@@ -1,17 +1,17 @@
-using HumanaPatientViewer.Web.Models;
-using HumanaPatientViewer.Web.Options;
-using HumanaPatientViewer.Web.Services;
+using FhirViewer.Web.Models;
+using FhirViewer.Web.Options;
+using FhirViewer.Web.Services;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 
-namespace HumanaPatientViewer.Web.Pages;
+namespace FhirViewer.Web.Pages;
 
 public class IndexModel(
-    HumanaSessionStore sessionStore,
+    ViewerSessionStore sessionStore,
     DashboardService dashboardService,
-    IOptions<HumanaOptions> options) : PageModel
+    IOptions<FhirConnectionOptions> options) : PageModel
 {
-    private readonly HumanaOptions _options = options.Value;
+    private readonly FhirConnectionOptions _options = options.Value;
 
     public DashboardViewModel Dashboard { get; private set; } = new();
 
@@ -34,7 +34,15 @@ public class IndexModel(
             ErrorCode = string.IsNullOrWhiteSpace(errorCode) ? null : errorCode,
             Token = token,
             Sections = sections,
-            RequestedResources = _options.RequestedResources
+            RequestedResources = _options.RequestedResources,
+            PatientSummary = DashboardService.BuildFeaturedSummary(sections, "Patient"),
+            CoverageSummary = DashboardService.BuildFeaturedSummary(sections, "Coverage"),
+            LoginHint = _options.LoginHint,
+            ViewerTitle = _options.AppTitle,
+            ViewerSubtitle = _options.AppSubtitle,
+            WelcomeTitle = _options.WelcomeTitle,
+            WelcomeDescription = _options.WelcomeDescription,
+            ConnectButtonLabel = _options.ConnectButtonLabel
         };
     }
 }

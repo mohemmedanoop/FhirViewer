@@ -1,12 +1,12 @@
 using System.Net.Http.Headers;
-using HumanaPatientViewer.Web.Options;
+using FhirViewer.Web.Options;
 using Microsoft.Extensions.Options;
 
-namespace HumanaPatientViewer.Web.Services;
+namespace FhirViewer.Web.Services;
 
-public sealed class HumanaFhirService(HttpClient httpClient, IOptions<HumanaOptions> options)
+public sealed class FhirApiService(HttpClient httpClient, IOptions<FhirConnectionOptions> options)
 {
-    private readonly HumanaOptions _options = options.Value;
+    private readonly FhirConnectionOptions _options = options.Value;
 
     public async Task<string> GetBundleAsync(string resourceType, string accessToken, CancellationToken cancellationToken)
     {
@@ -23,7 +23,7 @@ public sealed class HumanaFhirService(HttpClient httpClient, IOptions<HumanaOpti
         if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"Humana FHIR request for {resourceType} failed ({(int)response.StatusCode}): {payload}");
+                $"FHIR request for {resourceType} failed ({(int)response.StatusCode}): {payload}");
         }
 
         return payload;

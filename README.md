@@ -1,12 +1,13 @@
 # FHIR Viewer
 
-This solution contains an ASP.NET Core Razor Pages app that integrates with Humana OAuth and retrieves member-scoped FHIR data after patient consent.
+This solution contains an ASP.NET Core Razor Pages app for patient-consented FHIR access. It is intentionally branded as a neutral FHIR Viewer so it can be adapted across payers, providers, or SMART on FHIR integrations.
 
 ## What it does
 
-- Uses the Humana authorization-code flow.
+- Uses the authorization code flow for patient consent.
 - Stores token details in ASP.NET Core session state.
-- Retrieves these FHIR resources from Humana:
+- Supports an optional API key header for environments that require it.
+- Retrieves these FHIR resources:
   - `Patient`
   - `Coverage`
   - `ExplanationOfBenefit`
@@ -19,46 +20,40 @@ This solution contains an ASP.NET Core Razor Pages app that integrates with Huma
   - `CareTeam`
   - `Condition`
   - `DocumentReference`
-- Renders a browser dashboard with summaries and raw JSON.
+- Promotes `Patient` and `Coverage` into a featured summary header.
+- Displays the remaining resources in easy horizontal card lanes.
 
 ## Configuration
 
-Update [`src/HumanaPatientViewer.Web/appsettings.json`](C:\Project\FhirViewer\src\HumanaPatientViewer.Web\appsettings.json) or environment-specific overrides with:
+Update [`src/FhirViewer.Web/appsettings.json`](C:\Project\FhirViewer\src\FhirViewer.Web\appsettings.json) or environment-specific overrides with the `FhirConnection` section:
 
-- `Humana:AuthorityBaseUrl`
-- `Humana:FhirBaseUrl`
-- `Humana:ClientId`
-- `Humana:ClientSecret`
-- `Humana:UseApiKey`
-- `Humana:ApiKeyHeaderName`
-- `Humana:ApiKey`
-- `Humana:RedirectPath`
-- `Humana:Scopes`
-- `Humana:RequestedResources`
+- `FhirConnection:AuthorityBaseUrl`
+- `FhirConnection:FhirBaseUrl`
+- `FhirConnection:ClientId`
+- `FhirConnection:ClientSecret`
+- `FhirConnection:UseApiKey`
+- `FhirConnection:ApiKeyHeaderName`
+- `FhirConnection:ApiKey`
+- `FhirConnection:RedirectPath`
+- `FhirConnection:Scopes`
+- `FhirConnection:RequestedResources`
+- `FhirConnection:AppTitle`
+- `FhirConnection:AppSubtitle`
+- `FhirConnection:WelcomeTitle`
+- `FhirConnection:WelcomeDescription`
+- `FhirConnection:ConnectButtonLabel`
+- `FhirConnection:LoginHint`
 
-If `Humana:UseApiKey` is `true`, the app adds the configured API key header to both token requests and FHIR API requests. If it is `false`, the app calls Humana without that header.
-
-The default sandbox values are aligned with the Humana OAuth docs:
-
-- Authorize endpoint: `https://sandbox-fhir.humana.com/auth/authorize`
-- Token endpoint: `https://sandbox-fhir.humana.com/auth/token`
-- FHIR base URL: `https://sandbox-fhir.humana.com/api`
+If `FhirConnection:UseApiKey` is `true`, the configured API key header is sent with token and FHIR API requests. If it is `false`, the viewer calls the API without that header.
 
 ## Run
 
 ```powershell
-dotnet run --project .\src\HumanaPatientViewer.Web\HumanaPatientViewer.Web.csproj
+dotnet run --project .\src\FhirViewer.Web\FhirViewer.Web.csproj
 ```
 
-Then open the local site, choose **Connect with Humana**, and complete the member consent flow.
-
-## Sandbox test users
-
-Humana documents sandbox credentials in this pattern:
-
-- Username: `HUser00001` through `HUser00020`
-- Password: `PW00001!` through `PW00020!`
+The development startup flow can also open the browser automatically if `BrowserLaunch:Enabled` is `true`.
 
 ## React Native note
 
-See [`docs/ReactNativeIntegration.md`](C:\Project\FhirViewer\docs\ReactNativeIntegration.md) for how to reuse the same backend/auth approach from a React Native or React Native Web client.
+See [`docs/ReactNativeIntegration.md`](C:\Project\FhirViewer\docs\ReactNativeIntegration.md) for how to reuse the backend/auth pattern from a React Native or React Native Web client.

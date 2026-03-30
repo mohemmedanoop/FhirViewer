@@ -1,5 +1,5 @@
-using HumanaPatientViewer.Web.Options;
-using HumanaPatientViewer.Web.Services;
+using FhirViewer.Web.Options;
+using FhirViewer.Web.Services;
 using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,24 +9,24 @@ builder.Services.AddRazorPages();
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
-    options.Cookie.Name = ".HumanaPatientViewer.Session";
+    options.Cookie.Name = ".FhirViewer.Session";
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
     options.IdleTimeout = TimeSpan.FromHours(4);
 });
 
 builder.Services
-    .AddOptions<HumanaOptions>()
-    .Bind(builder.Configuration.GetSection(HumanaOptions.SectionName))
+    .AddOptions<FhirConnectionOptions>()
+    .Bind(builder.Configuration.GetSection(FhirConnectionOptions.SectionName))
     .ValidateDataAnnotations();
 
 builder.Services
     .AddOptions<BrowserLaunchOptions>()
     .Bind(builder.Configuration.GetSection(BrowserLaunchOptions.SectionName));
 
-builder.Services.AddHttpClient<HumanaAuthService>();
-builder.Services.AddHttpClient<HumanaFhirService>();
-builder.Services.AddScoped<HumanaSessionStore>();
+builder.Services.AddHttpClient<OAuthService>();
+builder.Services.AddHttpClient<FhirApiService>();
+builder.Services.AddScoped<ViewerSessionStore>();
 builder.Services.AddScoped<DashboardService>();
 
 if (builder.Environment.IsDevelopment())
@@ -49,9 +49,9 @@ app.UseAuthorization();
 
 app.MapGet("/auth/login", (
     HttpContext httpContext,
-    HumanaSessionStore sessionStore,
-    HumanaAuthService authService,
-    IOptions<HumanaOptions> options) =>
+    ViewerSessionStore sessionStore,
+    OAuthService authService,
+    IOptions<FhirConnectionOptions> options) =>
 {
     if (!options.Value.HasRequiredConfiguration())
     {
@@ -67,8 +67,8 @@ app.MapGet("/auth/login", (
 
 app.MapGet("/auth/callback", async (
     HttpContext httpContext,
-    HumanaSessionStore sessionStore,
-    HumanaAuthService authService,
+    ViewerSessionStore sessionStore,
+    OAuthService authService,
     string? code,
     string? state,
     CancellationToken cancellationToken) =>
@@ -91,15 +91,15 @@ app.MapGet("/auth/callback", async (
     return Results.Redirect("/");
 });
 
-app.MapPost("/auth/logout", (HumanaSessionStore sessionStore) =>
+app.MapPost("/auth/logout", (ViewerSessionStore sessionStore) =>
 {
     sessionStore.ClearAll();
     return Results.Redirect("/");
 });
 
 app.MapPost("/auth/refresh", async (
-    HumanaSessionStore sessionStore,
-    HumanaAuthService authService,
+    ViewerSessionStore sessionStore,
+    OAuthService authService,
     HttpContext httpContext,
     CancellationToken cancellationToken) =>
 {
@@ -114,7 +114,7 @@ app.MapPost("/auth/refresh", async (
     return Results.Redirect("/");
 });
 
-app.MapGet("/api/session", (HumanaSessionStore sessionStore) =>
+app.MapGet("/api/session", (ViewerSessionStore sessionStore) =>
 {
     var token = sessionStore.GetToken();
     return Results.Ok(new
@@ -127,7 +127,7 @@ app.MapGet("/api/session", (HumanaSessionStore sessionStore) =>
 });
 
 app.MapGet("/api/dashboard", async (
-    HumanaSessionStore sessionStore,
+    ViewerSessionStore sessionStore,
     DashboardService dashboardService,
     CancellationToken cancellationToken) =>
 {
@@ -149,8 +149,8 @@ app.MapGet("/api/dashboard", async (
 
 app.MapGet("/api/resources/{resourceType}", async (
     string resourceType,
-    HumanaSessionStore sessionStore,
-    HumanaFhirService fhirService,
+    ViewerSessionStore sessionStore,
+    FhirApiService fhirService,
     CancellationToken cancellationToken) =>
 {
     var token = sessionStore.GetToken();

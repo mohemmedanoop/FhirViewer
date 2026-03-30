@@ -1,16 +1,16 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace HumanaPatientViewer.Web.Options;
+namespace FhirViewer.Web.Options;
 
-public sealed class HumanaOptions
+public sealed class FhirConnectionOptions
 {
-    public const string SectionName = "Humana";
+    public const string SectionName = "FhirConnection";
 
     [Required]
-    public string AuthorityBaseUrl { get; set; } = "https://sandbox-fhir.humana.com";
+    public string AuthorityBaseUrl { get; set; } = "https://your-oauth-server";
 
     [Required]
-    public string FhirBaseUrl { get; set; } = "https://sandbox-fhir.humana.com/api";
+    public string FhirBaseUrl { get; set; } = "https://your-fhir-server";
 
     [Required]
     public string ClientId { get; set; } = "";
@@ -61,6 +61,20 @@ public sealed class HumanaOptions
         "Condition",
         "DocumentReference"
     ];
+
+    public string AppTitle { get; set; } = "FHIR Viewer";
+
+    public string AppSubtitle { get; set; } = "Configurable patient access experience";
+
+    public string WelcomeTitle { get; set; } = "A simple, welcoming way to browse consented FHIR data.";
+
+    public string WelcomeDescription { get; set; } =
+        "Connect once, capture patient consent, and explore claims, coverage, medications, documents, and clinical details in one approachable dashboard.";
+
+    public string ConnectButtonLabel { get; set; } = "Connect and view records";
+
+    public string LoginHint { get; set; } =
+        "Use your configured SMART on FHIR or payer sandbox credentials here. Update this hint per environment if your consent flow changes.";
 
     public bool HasRequiredConfiguration() =>
         !string.IsNullOrWhiteSpace(ClientId) &&

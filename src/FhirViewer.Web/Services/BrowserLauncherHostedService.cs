@@ -1,8 +1,8 @@
 using System.Diagnostics;
-using HumanaPatientViewer.Web.Options;
+using FhirViewer.Web.Options;
 using Microsoft.Extensions.Options;
 
-namespace HumanaPatientViewer.Web.Services;
+namespace FhirViewer.Web.Services;
 
 public sealed class BrowserLauncherHostedService(
     IHostApplicationLifetime applicationLifetime,

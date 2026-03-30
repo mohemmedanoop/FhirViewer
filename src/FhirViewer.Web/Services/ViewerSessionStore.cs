@@ -1,26 +1,26 @@
 using System.Text.Json;
-using HumanaPatientViewer.Web.Models;
+using FhirViewer.Web.Models;
 
-namespace HumanaPatientViewer.Web.Services;
+namespace FhirViewer.Web.Services;
 
-public sealed class HumanaSessionStore(IHttpContextAccessor httpContextAccessor)
+public sealed class ViewerSessionStore(IHttpContextAccessor httpContextAccessor)
 {
-    private const string TokenKey = "humana.token";
-    private const string StateKey = "humana.oauth.state";
+    private const string TokenKey = "fhirviewer.token";
+    private const string StateKey = "fhirviewer.oauth.state";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private ISession Session => httpContextAccessor.HttpContext?.Session
         ?? throw new InvalidOperationException("No active HTTP session is available.");
 
-    public HumanaTokenResponse? GetToken()
+    public OAuthTokenResponse? GetToken()
     {
         var payload = Session.GetString(TokenKey);
         return string.IsNullOrWhiteSpace(payload)
             ? null
-            : JsonSerializer.Deserialize<HumanaTokenResponse>(payload, JsonOptions);
+            : JsonSerializer.Deserialize<OAuthTokenResponse>(payload, JsonOptions);
     }
 
-    public void SetToken(HumanaTokenResponse token)
+    public void SetToken(OAuthTokenResponse token)
     {
         token.ReceivedAtUtc = DateTimeOffset.UtcNow;
         Session.SetString(TokenKey, JsonSerializer.Serialize(token, JsonOptions));

@@ -1,15 +1,15 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using HumanaPatientViewer.Web.Models;
-using HumanaPatientViewer.Web.Options;
+using FhirViewer.Web.Models;
+using FhirViewer.Web.Options;
 using Microsoft.Extensions.Options;
 
-namespace HumanaPatientViewer.Web.Services;
+namespace FhirViewer.Web.Services;
 
-public sealed class HumanaAuthService(HttpClient httpClient, IOptions<HumanaOptions> options)
+public sealed class OAuthService(HttpClient httpClient, IOptions<FhirConnectionOptions> options)
 {
-    private readonly HumanaOptions _options = options.Value;
+    private readonly FhirConnectionOptions _options = options.Value;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public string BuildAuthorizationUrl(HttpContext httpContext, string state)
@@ -30,7 +30,7 @@ public sealed class HumanaAuthService(HttpClient httpClient, IOptions<HumanaOpti
         return $"{_options.AuthorityBaseUrl.TrimEnd('/')}/auth/authorize?{queryString}";
     }
 
-    public async Task<HumanaTokenResponse> ExchangeCodeAsync(HttpContext httpContext, string code, CancellationToken cancellationToken)
+    public async Task<OAuthTokenResponse> ExchangeCodeAsync(HttpContext httpContext, string code, CancellationToken cancellationToken)
     {
         var form = new Dictionary<string, string>
         {
@@ -42,7 +42,7 @@ public sealed class HumanaAuthService(HttpClient httpClient, IOptions<HumanaOpti
         return await SendTokenRequestAsync(form, cancellationToken);
     }
 
-    public async Task<HumanaTokenResponse> RefreshTokenAsync(HttpContext httpContext, string refreshToken, CancellationToken cancellationToken)
+    public async Task<OAuthTokenResponse> RefreshTokenAsync(HttpContext httpContext, string refreshToken, CancellationToken cancellationToken)
     {
         var form = new Dictionary<string, string>
         {
@@ -53,7 +53,7 @@ public sealed class HumanaAuthService(HttpClient httpClient, IOptions<HumanaOpti
         return await SendTokenRequestAsync(form, cancellationToken);
     }
 
-    private async Task<HumanaTokenResponse> SendTokenRequestAsync(
+    private async Task<OAuthTokenResponse> SendTokenRequestAsync(
         IReadOnlyDictionary<string, string> form,
         CancellationToken cancellationToken)
     {
@@ -72,11 +72,11 @@ public sealed class HumanaAuthService(HttpClient httpClient, IOptions<HumanaOpti
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"Humana token request failed ({(int)response.StatusCode}): {payload}");
+            throw new InvalidOperationException($"OAuth token request failed ({(int)response.StatusCode}): {payload}");
         }
 
-        var token = JsonSerializer.Deserialize<HumanaTokenResponse>(payload, JsonOptions)
-            ?? throw new InvalidOperationException("Humana token response could not be parsed.");
+        var token = JsonSerializer.Deserialize<OAuthTokenResponse>(payload, JsonOptions)
+            ?? throw new InvalidOperationException("OAuth token response could not be parsed.");
 
         token.ReceivedAtUtc = DateTimeOffset.UtcNow;
         return token;

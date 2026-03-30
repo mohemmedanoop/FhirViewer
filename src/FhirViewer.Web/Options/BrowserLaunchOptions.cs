@@ -1,4 +1,4 @@
-namespace HumanaPatientViewer.Web.Options;
+namespace FhirViewer.Web.Options;
 
 public sealed class BrowserLaunchOptions
 {
