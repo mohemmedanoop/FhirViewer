@@ -13,10 +13,17 @@ public sealed class DashboardService(FhirApiService fhirService, IOptions<FhirCo
         string accessToken,
         CancellationToken cancellationToken)
     {
-        var tasks = _options.RequestedResources.Select(resourceType => BuildSectionAsync(resourceType, accessToken, cancellationToken));
+        var requestedResources = _options.RequestedResources
+            .Where(static resourceType => !string.IsNullOrWhiteSpace(resourceType))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var tasks = requestedResources.Select(resourceType => BuildSectionAsync(resourceType, accessToken, cancellationToken));
         var sections = await Task.WhenAll(tasks);
 
         return sections
+            .GroupBy(static section => section.ResourceType, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
             .OrderBy(static section => GetDisplayPriority(section.ResourceType))
             .ToArray();
     }
